@@ -1,29 +1,30 @@
-use std::convert::TryFrom;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use std::cmp::PartialEq;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::convert::TryFrom;
 
-use super::{ Graph, Error };
+use super::{Error, Graph};
+use crate::graph::appendable_graph::AppendableGraph;
 use crate::traversal::DepthFirst;
 
 /// A Graph backed by an adjacency matrix. Nodes and neighbors are iterated in
 /// the order in which they're added.
-/// 
+///
 /// ```rust
 /// use std::convert::TryFrom;
-/// use gamma::graph::{ Graph, Error, DefaultGraph };
-/// 
+/// use gamma::graph::{ AppendableGraph, Graph, Error, DefaultGraph };
+///
 /// fn main() -> Result<(), Error> {
 ///     let mut c3 = DefaultGraph::try_from(vec![
 ///         vec![ 1 ],
 ///         vec![ 0, 2 ],
 ///         vec![ 1 ]
 ///     ])?;
-/// 
+///
 ///     assert_eq!(c3.nodes().to_vec(), vec![ 0, 1, 2 ]);
-/// 
+///
 ///     assert_eq!(c3.add_edge(0, 1), Err(Error::DuplicateEdge(0, 1)));
-/// 
+///
 ///     Ok(())
 /// }
 /// ```
@@ -32,7 +33,9 @@ pub struct DefaultGraph {
     indices: HashMap<usize, usize>,
     adjacency: Vec<Vec<usize>>,
     nodes: Vec<usize>,
-    edges: Vec<(usize, usize)>
+    edges: Vec<(usize, usize)>,
+    /// Used when attempting to add a node without providing an id
+    next_id: usize,
 }
 
 impl DefaultGraph {
@@ -41,49 +44,15 @@ impl DefaultGraph {
             indices: HashMap::new(),
             adjacency: Vec::new(),
             nodes: Vec::new(),
-            edges: Vec::new()
+            edges: Vec::new(),
+            next_id: 0,
         }
-    }
-
-    pub fn add_node(&mut self, id: usize) -> Result<(), Error> {
-        match self.indices.entry(id) {
-            Entry::Occupied(_) => return Err(Error::DuplicateNode(id)),
-            Entry::Vacant(entry) => {
-                entry.insert(self.nodes.len());
-            }
-        }
-
-        self.nodes.push(id);
-        self.adjacency.push(vec![ ]);
-
-        Ok(())
-    }
-
-    pub fn add_edge(&mut self, sid: usize, tid: usize) -> Result<(), Error> {
-        let &source_index = match self.indices.get(&sid) {
-            Some(index) => index,
-            None => return Err(Error::MissingNode(sid))
-        };
-        let &target_index = match self.indices.get(&tid) {
-            Some(index) => index,
-            None => return Err(Error::MissingNode(tid))
-        };
-        
-        if self.adjacency[source_index].contains(&tid) {
-            return Err(Error::DuplicateEdge(sid, tid));
-        }
-        
-        self.adjacency[source_index].push(tid);
-        self.adjacency[target_index].push(sid);
-        self.edges.push((sid, tid));
-
-        Ok(())
     }
 
     fn index_for(&self, id: usize) -> Result<usize, Error> {
         match self.indices.get(&id) {
             Some(index) => Ok(*index),
-            None => Err(Error::MissingNode(id))
+            None => Err(Error::MissingNode(id)),
         }
     }
 }
@@ -110,7 +79,7 @@ impl Graph for DefaultGraph {
 
         Ok(&self.adjacency[index])
     }
-    
+
     fn has_node(&self, id: usize) -> bool {
         self.indices.contains_key(&id)
     }
@@ -136,6 +105,55 @@ impl Graph for DefaultGraph {
     }
 }
 
+impl AppendableGraph for DefaultGraph {
+    fn add_node(&mut self) -> Result<usize, Error> {
+        // Find the next unoccupied id.
+        while let Entry::Occupied(_) = self.indices.entry(self.next_id) {
+            self.next_id += 1;
+        }
+
+        self.add_node_with(self.next_id)?;
+        self.next_id += 1;
+
+        Ok(self.next_id - 1)
+    }
+
+    fn add_node_with(&mut self, id: usize) -> Result<(), Error> {
+        match self.indices.entry(id) {
+            Entry::Occupied(_) => return Err(Error::DuplicateNode(id)),
+            Entry::Vacant(entry) => {
+                entry.insert(self.nodes.len());
+            }
+        }
+
+        self.nodes.push(id);
+        self.adjacency.push(vec![]);
+
+        Ok(())
+    }
+
+    fn add_edge(&mut self, sid: usize, tid: usize) -> Result<(), Error> {
+        let &source_index = match self.indices.get(&sid) {
+            Some(index) => index,
+            None => return Err(Error::MissingNode(sid)),
+        };
+        let &target_index = match self.indices.get(&tid) {
+            Some(index) => index,
+            None => return Err(Error::MissingNode(tid)),
+        };
+
+        if self.adjacency[source_index].contains(&tid) {
+            return Err(Error::DuplicateEdge(sid, tid));
+        }
+
+        self.adjacency[source_index].push(tid);
+        self.adjacency[target_index].push(sid);
+        self.edges.push((sid, tid));
+
+        Ok(())
+    }
+}
+
 impl TryFrom<Vec<Vec<usize>>> for DefaultGraph {
     type Error = Error;
 
@@ -146,7 +164,7 @@ impl TryFrom<Vec<Vec<usize>>> for DefaultGraph {
             for (index, &tid) in neighbors.iter().enumerate() {
                 if tid >= adjacency.len() {
                     return Err(Error::MissingNode(tid));
-                } else if neighbors[index+1..].contains(&tid) {
+                } else if neighbors[index + 1..].contains(&tid) {
                     return Err(Error::DuplicateEdge(sid, tid));
                 } else if !adjacency[tid].contains(&sid) {
                     return Err(Error::MissingEdge(tid, sid));
@@ -175,11 +193,11 @@ impl<'a, G: Graph> TryFrom<DepthFirst<'a, G>> for DefaultGraph {
 
         for step in traversal {
             if result.is_empty() {
-                result.add_node(step.sid)?;
+                result.add_node_with(step.sid)?;
             }
 
             if !step.cut {
-                result.add_node(step.tid)?;
+                result.add_node_with(step.tid)?;
             }
 
             result.add_edge(step.sid, step.tid)?;
@@ -197,11 +215,11 @@ impl TryFrom<Vec<(usize, usize)>> for DefaultGraph {
 
         for (sid, tid) in edges {
             if !result.has_node(sid) {
-                result.add_node(sid)?;
+                result.add_node_with(sid)?;
             }
 
             if !result.has_node(tid) {
-                result.add_node(tid)?;
+                result.add_node_with(tid)?;
             }
 
             result.add_edge(sid, tid)?;
@@ -229,9 +247,10 @@ impl PartialEq for DefaultGraph {
             match other.has_edge(*sid, *tid) {
                 Ok(result) => {
                     if !result {
-                        return false
+                        return false;
                     }
-                }, Err(_) => return false
+                }
+                Err(_) => return false,
             }
         }
 
@@ -245,29 +264,21 @@ mod try_from_adjacency {
 
     #[test]
     fn missing_node() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ]
-        ]);
+        let graph = DefaultGraph::try_from(vec![vec![1]]);
 
         assert_eq!(graph, Err(Error::MissingNode(1)))
     }
 
     #[test]
     fn duplicate_edge() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1, 1 ],
-            vec![ 0 ]
-        ]);
+        let graph = DefaultGraph::try_from(vec![vec![1, 1], vec![0]]);
 
         assert_eq!(graph, Err(Error::DuplicateEdge(0, 1)))
     }
 
     #[test]
     fn missing_edge() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ ]
-        ]);
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![]]);
 
         assert_eq!(graph, Err(Error::MissingEdge(1, 0)))
     }
@@ -279,38 +290,28 @@ mod try_from_edges {
 
     #[test]
     fn duplicate_edge() {
-        let graph = DefaultGraph::try_from(vec![
-            (0, 1),
-            (0, 1)
-        ]);
+        let graph = DefaultGraph::try_from(vec![(0, 1), (0, 1)]);
 
         assert_eq!(graph, Err(Error::DuplicateEdge(0, 1)))
     }
 
     #[test]
     fn duplicate_edge_reverse() {
-        let graph = DefaultGraph::try_from(vec![
-            (0, 1),
-            (1, 0)
-        ]);
+        let graph = DefaultGraph::try_from(vec![(0, 1), (1, 0)]);
 
         assert_eq!(graph, Err(Error::DuplicateEdge(1, 0)))
     }
 
     #[test]
     fn valid() {
-        let graph = DefaultGraph::try_from(vec![
-            (0, 1),
-            (1, 2),
-            (3, 4)
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![(0, 1), (1, 2), (3, 4)]).unwrap();
         let mut expected = DefaultGraph::new();
 
-        assert_eq!(expected.add_node(0), Ok(()));
-        assert_eq!(expected.add_node(1), Ok(()));
-        assert_eq!(expected.add_node(2), Ok(()));
-        assert_eq!(expected.add_node(3), Ok(()));
-        assert_eq!(expected.add_node(4), Ok(()));
+        assert_eq!(expected.add_node_with(0), Ok(()));
+        assert_eq!(expected.add_node_with(1), Ok(()));
+        assert_eq!(expected.add_node_with(2), Ok(()));
+        assert_eq!(expected.add_node_with(3), Ok(()));
+        assert_eq!(expected.add_node_with(4), Ok(()));
         assert_eq!(expected.add_edge(0, 1), Ok(()));
         assert_eq!(expected.add_edge(1, 2), Ok(()));
         assert_eq!(expected.add_edge(3, 4), Ok(()));
@@ -325,28 +326,20 @@ mod try_from_depth_first {
 
     #[test]
     fn p3_internal() {
-        let g1 = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let g1 = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
         let traversal = DepthFirst::new(&g1, 1).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges(), [ (1, 0), (1, 2) ])
+        assert_eq!(g2.edges(), [(1, 0), (1, 2)])
     }
 
     #[test]
     fn c3() {
-        let g1 = DefaultGraph::try_from(vec![
-            vec![ 1, 2 ],
-            vec![ 0, 2 ],
-            vec![ 1, 0 ]
-        ]).unwrap();
+        let g1 = DefaultGraph::try_from(vec![vec![1, 2], vec![0, 2], vec![1, 0]]).unwrap();
         let traversal = DepthFirst::new(&g1, 0).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges(), [ (0, 1), (1, 2), (2, 0) ])
+        assert_eq!(g2.edges(), [(0, 1), (1, 2), (2, 0)])
     }
 }
 
@@ -356,11 +349,9 @@ mod add_node {
 
     #[test]
     fn duplicate() {
-        let mut graph = DefaultGraph::try_from(vec![
-            vec![ ]
-        ]).unwrap();
+        let mut graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
-        assert_eq!(graph.add_node(0), Err(Error::DuplicateNode(0)))
+        assert_eq!(graph.add_node_with(0), Err(Error::DuplicateNode(0)))
     }
 }
 
@@ -370,38 +361,28 @@ mod add_edge {
 
     #[test]
     fn duplicate() {
-        let mut graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0 ]
-        ]).unwrap();
+        let mut graph = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
 
         assert_eq!(graph.add_edge(0, 1), Err(Error::DuplicateEdge(0, 1)))
     }
 
     #[test]
     fn duplicate_reverse() {
-        let mut graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0 ]
-        ]).unwrap();
+        let mut graph = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
 
         assert_eq!(graph.add_edge(1, 0), Err(Error::DuplicateEdge(1, 0)))
     }
 
     #[test]
     fn missing_sid() {
-        let mut graph = DefaultGraph::try_from(vec![
-            vec![ ]
-        ]).unwrap();
+        let mut graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.add_edge(1, 0), Err(Error::MissingNode(1)))
     }
 
     #[test]
     fn missing_tid() {
-        let mut graph = DefaultGraph::try_from(vec![
-            vec![ ]
-        ]).unwrap();
+        let mut graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.add_edge(0, 1), Err(Error::MissingNode(1)))
     }
@@ -420,9 +401,7 @@ mod is_empty {
 
     #[test]
     fn p1() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.is_empty(), false)
     }
@@ -441,11 +420,7 @@ mod order {
 
     #[test]
     fn p3() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
         assert_eq!(graph.order(), 3)
     }
@@ -464,11 +439,7 @@ mod size {
 
     #[test]
     fn p3() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
         assert_eq!(graph.size(), 2)
     }
@@ -482,18 +453,14 @@ mod nodes {
     fn p0() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.nodes(), [ ])
+        assert_eq!(graph.nodes(), [])
     }
 
     #[test]
     fn p3() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.nodes(), [ 0, 1, 2 ])
+        assert_eq!(graph.nodes(), [0, 1, 2])
     }
 }
 
@@ -510,13 +477,9 @@ mod neighbors {
 
     #[test]
     fn given_inside_p3() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.neighbors(1).unwrap(), [ 0, 2 ])
+        assert_eq!(graph.neighbors(1).unwrap(), [0, 2])
     }
 }
 
@@ -533,9 +496,7 @@ mod has_node {
 
     #[test]
     fn given_inside_p1() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.has_node(0), true)
     }
@@ -554,11 +515,7 @@ mod degree {
 
     #[test]
     fn given_inside_p3() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
         assert_eq!(graph.degree(1), Ok(2))
     }
@@ -572,18 +529,14 @@ mod edges {
     fn p0() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.edges().to_vec(), vec![ ])
+        assert_eq!(graph.edges().to_vec(), vec![])
     }
 
     #[test]
     fn p3() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.edges(), [ (0, 1), (1, 2) ])
+        assert_eq!(graph.edges(), [(0, 1), (1, 2)])
     }
 }
 
@@ -600,29 +553,21 @@ mod has_edge {
 
     #[test]
     fn sid_unk() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.has_edge(0, 1), Err(Error::MissingNode(1)))
     }
 
     #[test]
     fn sid_tid() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
 
         assert_eq!(graph.has_edge(0, 1), Ok(true))
     }
 
     #[test]
     fn tid_sid() {
-        let graph = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0 ]
-        ]).unwrap();
+        let graph = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
 
         assert_eq!(graph.has_edge(1, 0), Ok(true))
     }
@@ -634,55 +579,32 @@ mod eq {
 
     #[test]
     fn c3_and_p3() {
-        let c3 = DefaultGraph::try_from(vec![
-            vec![ 1, 2 ],
-            vec![ 0, 2 ],
-            vec![ 1, 0 ]
-        ]).unwrap();
-        let p3 = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0, 2 ],
-            vec![ 1 ]
-        ]).unwrap();
+        let c3 = DefaultGraph::try_from(vec![vec![1, 2], vec![0, 2], vec![1, 0]]).unwrap();
+        let p3 = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
         assert_eq!(c3 == p3, false)
     }
 
     #[test]
     fn p2_and_p2_p1() {
-        let p2 = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0 ]
-        ]).unwrap();
-        let p2_p1 = DefaultGraph::try_from(vec![
-            vec![ 1 ],
-            vec![ 0 ],
-            vec![ ],
-        ]).unwrap();
+        let p2 = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
+        let p2_p1 = DefaultGraph::try_from(vec![vec![1], vec![0], vec![]]).unwrap();
 
         assert_eq!(p2 == p2_p1, false)
     }
 
     #[test]
     fn p2_and_p2_reverse() {
-        let g1 = DefaultGraph::try_from(vec![
-            (0, 1)
-        ]).unwrap();
-        let g2 = DefaultGraph::try_from(vec![
-            (1, 0)
-        ]).unwrap();
+        let g1 = DefaultGraph::try_from(vec![(0, 1)]).unwrap();
+        let g2 = DefaultGraph::try_from(vec![(1, 0)]).unwrap();
 
         assert_eq!(g1 == g2, true)
     }
 
     #[test]
     fn p2_and_p2_different_ids() {
-        let g1 = DefaultGraph::try_from(vec![
-            (0, 1)
-        ]).unwrap();
-        let g2 = DefaultGraph::try_from(vec![
-            (0, 2)
-        ]).unwrap();
+        let g1 = DefaultGraph::try_from(vec![(0, 1)]).unwrap();
+        let g2 = DefaultGraph::try_from(vec![(0, 2)]).unwrap();
 
         assert_eq!(g1 == g2, false)
     }

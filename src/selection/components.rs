@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::collections::HashSet;
 
-use crate::graph::{ Graph, DefaultGraph };
+use crate::graph::{Graph, DefaultGraph, AppendableGraph};
 use crate::traversal::{ DepthFirst };
 
 /// Returns the [connected components](https://en.wikipedia.org/wiki/Component_(graph_theory))
@@ -10,7 +10,7 @@ use crate::traversal::{ DepthFirst };
 /// ```rust
 /// use std::convert::TryFrom;
 /// 
-/// use gamma::graph::{ Graph, Error, DefaultGraph };
+/// use gamma::graph::{ AppendableGraph, Graph, Error, DefaultGraph };
 /// use gamma::selection::components;
 /// 
 /// fn main() -> Result<(), Error> {
@@ -22,11 +22,11 @@ use crate::traversal::{ DepthFirst };
 ///     let mut c1 = DefaultGraph::new();
 ///     let mut c2 = DefaultGraph::new();
 /// 
-///     c1.add_node(0)?;
-///     c1.add_node(1)?;
+///     c1.add_node_with(0)?;
+///     c1.add_node_with(1)?;
 ///     c1.add_edge(0, 1)?;
 /// 
-///     c2.add_node(2)?;
+///     c2.add_node_with(2)?;
 /// 
 ///     assert_eq!(components(&graph).collect::<Vec<_>>(), vec![ c1, c2 ]);
 /// 
@@ -74,7 +74,7 @@ impl<'a, G: Graph> Iterator for Components<'a, G> {
         );
 
         if component.is_empty() {
-            component.add_node(*root).expect("add root to empty graph");
+            component.add_node_with(*root).expect("add root to empty graph");
         } else {
             for id in component.nodes() {
                 self.visited.insert(*id);
@@ -109,8 +109,8 @@ mod tests {
         let mut c1 = DefaultGraph::new();
         let mut c2 = DefaultGraph::new();
 
-        assert_eq!(c1.add_node(0), Ok(()));
-        assert_eq!(c2.add_node(1), Ok(()));
+        assert_eq!(c1.add_node_with(0), Ok(()));
+        assert_eq!(c2.add_node_with(1), Ok(()));
 
         assert_eq!(components, vec![ c1, c2 ])
     }
@@ -137,11 +137,11 @@ mod tests {
         let mut c1 = DefaultGraph::new();
         let mut c2 = DefaultGraph::new();
 
-        assert_eq!(c1.add_node(0), Ok(()));
-        assert_eq!(c1.add_node(1), Ok(()));
+        assert_eq!(c1.add_node_with(0), Ok(()));
+        assert_eq!(c1.add_node_with(1), Ok(()));
         assert_eq!(c1.add_edge(0, 1), Ok(()));
 
-        assert_eq!(c2.add_node(2), Ok(()));
+        assert_eq!(c2.add_node_with(2), Ok(()));
 
         assert_eq!(components, vec![c1, c2 ])
     }
@@ -161,16 +161,16 @@ mod tests {
         let mut c2 = DefaultGraph::new();
         let mut c3 = DefaultGraph::new();
 
-        assert_eq!(c1.add_node(0), Ok(()));
-        assert_eq!(c1.add_node(1), Ok(()));
+        assert_eq!(c1.add_node_with(0), Ok(()));
+        assert_eq!(c1.add_node_with(1), Ok(()));
         assert_eq!(c1.add_edge(0, 1), Ok(()));
 
-        assert_eq!(c2.add_node(2), Ok(()));
-        assert_eq!(c2.add_node(3), Ok(()));
+        assert_eq!(c2.add_node_with(2), Ok(()));
+        assert_eq!(c2.add_node_with(3), Ok(()));
         assert_eq!(c2.add_edge(2, 3), Ok(()));
 
-        assert_eq!(c3.add_node(4), Ok(()));
-        assert_eq!(c3.add_node(5), Ok(()));
+        assert_eq!(c3.add_node_with(4), Ok(()));
+        assert_eq!(c3.add_node_with(5), Ok(()));
         assert_eq!(c3.add_edge(4, 5), Ok(()));
 
         assert_eq!(components, vec![c1, c2, c3 ]);
@@ -189,15 +189,15 @@ mod tests {
         let mut c1 = DefaultGraph::new();
         let mut c2 = DefaultGraph::new();
 
-        assert_eq!(c1.add_node(0), Ok(()));
-        assert_eq!(c1.add_node(1), Ok(()));
-        assert_eq!(c1.add_node(2), Ok(()));
+        assert_eq!(c1.add_node_with(0), Ok(()));
+        assert_eq!(c1.add_node_with(1), Ok(()));
+        assert_eq!(c1.add_node_with(2), Ok(()));
         assert_eq!(c1.add_edge(0, 1), Ok(()));
         assert_eq!(c1.add_edge(1, 2), Ok(()));
         assert_eq!(c1.add_edge(2, 0), Ok(()));
 
-        assert_eq!(c2.add_node(3), Ok(()));
-        assert_eq!(c2.add_node(4), Ok(()));
+        assert_eq!(c2.add_node_with(3), Ok(()));
+        assert_eq!(c2.add_node_with(4), Ok(()));
         assert_eq!(c2.add_edge(3, 4), Ok(()));
 
         assert_eq!(components, vec![ c1, c2 ])

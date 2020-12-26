@@ -1,4 +1,4 @@
-use crate::graph::{ Graph, DefaultGraph, Error };
+use crate::graph::{ AppendableGraph, Graph, DefaultGraph, Error };
 use super::pairing::Pairing;
 
 #[derive(Debug,PartialEq)]
@@ -36,11 +36,11 @@ impl Blossom {
     ) -> Result<DefaultGraph, Error> {
         let mut result = DefaultGraph::new();
 
-        result.add_node(self.id)?;
+        result.add_node_with(self.id)?;
     
         for &id in graph.nodes() {
             if !self.path.contains(&id) {
-                result.add_node(id)?;
+                result.add_node_with(id)?;
             }
         }
 
