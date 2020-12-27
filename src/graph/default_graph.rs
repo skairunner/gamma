@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use super::{Error, Graph};
 use crate::graph::appendable_graph::AppendableGraph;
 use crate::traversal::DepthFirst;
-use crate::graph::deletable_graph::RemovableGraph;
+use crate::graph::removeable_graph::RemovableGraph;
 
 /// A Graph backed by an adjacency matrix. Nodes and neighbors are iterated in
 /// the order in which they're added.
