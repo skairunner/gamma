@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 use super::{Error, Graph};
 use crate::graph::appendable_graph::AppendableGraph;
 use crate::traversal::DepthFirst;
+use crate::graph::deletable_graph::RemovableGraph;
 
 /// A Graph backed by an adjacency matrix. Nodes and neighbors are iterated in
 /// the order in which they're added.
@@ -30,8 +31,11 @@ use crate::traversal::DepthFirst;
 /// ```
 #[derive(Debug)]
 pub struct DefaultGraph {
+    /// Map of node id to index
     indices: HashMap<usize, usize>,
+    /// Map of index to vec of adjacent node ids
     adjacency: Vec<Vec<usize>>,
+    /// Map of index to node id
     nodes: Vec<usize>,
     edges: Vec<(usize, usize)>,
     /// Used when attempting to add a node without providing an id
@@ -53,6 +57,14 @@ impl DefaultGraph {
         match self.indices.get(&id) {
             Some(index) => Ok(*index),
             None => Err(Error::MissingNode(id)),
+        }
+    }
+
+    /// Remove the node "id" from the adjancency list "list_id".
+    fn remove_adjacency(&mut self, list_id: usize, id: usize) {
+        let pos = self.adjacency[list_id].iter().position(|e| *e == id);
+        if let Some(pos) = pos {
+            self.adjacency[list_id].swap_remove(pos);
         }
     }
 }
@@ -151,6 +163,70 @@ impl AppendableGraph for DefaultGraph {
         self.edges.push((sid, tid));
 
         Ok(())
+    }
+}
+
+impl RemovableGraph for DefaultGraph {
+    fn remove_node(&mut self, id: usize) -> usize {
+        match self.indices.get(&id).map(|i| *i) {
+            None => 0,
+            Some(index) => {
+                self.remove_edges_with(id);
+                // Need to delete node by swapping it with the final element, then renumbering the
+                // previously final element.
+                if self.nodes.len() > 1 {
+                    let final_id = *self.nodes.last().unwrap();
+                    let final_index = *self.indices.get(&final_id).unwrap();
+                    self.indices.insert(final_id, index);
+                    self.adjacency.swap(final_index, index);
+                    self.nodes.swap(final_index, index);
+                }
+                // Remove the old id -> index mapping
+                self.indices.remove(&id);
+                self.adjacency.pop();
+
+                // Remove the actual node.
+                self.nodes.pop();
+
+                1
+            }
+        }
+    }
+
+    fn remove_edge(&mut self, sid: usize, tid: usize) -> usize {
+        let index_sid = match self.indices.get(&sid) {
+            Some(index) => *index,
+            None => return 0,
+        };
+        let index_tid = match self.indices.get(&tid) {
+            Some(index) => *index,
+            None => return 0,
+        };
+        match self.adjacency[index_sid].contains(&tid) {
+            false => 0,
+            true => {
+                // First, remove edge from adjacency lists.
+                self.remove_adjacency(index_sid, tid);
+                self.remove_adjacency(index_tid, sid);
+                // Remove edge(s) from the edge list
+                self.edges = self.edges.iter()
+                    .filter(|edge| **edge != (sid, tid) && **edge != (tid, sid))
+                    .map(|edge| *edge)
+                    .collect();
+
+                1
+            }
+        }
+    }
+
+    fn remove_edges_with(&mut self, id: usize) -> usize {
+        let edges: Vec<_> = self.edges.iter()
+            .filter(|edge| (**edge).0 == id || (**edge).1 == id)
+            .map(|edge| *edge)
+            .collect();
+        edges.into_iter()
+            .map(|(sid, tid)| self.remove_edge(sid, tid))
+            .sum()
     }
 }
 
@@ -344,47 +420,103 @@ mod try_from_depth_first {
 }
 
 #[cfg(test)]
-mod add_node {
+mod add_default_graph {
     use super::*;
 
     #[test]
-    fn duplicate() {
+    fn add_duplicate_node() {
         let mut graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.add_node_with(0), Err(Error::DuplicateNode(0)))
     }
-}
-
-#[cfg(test)]
-mod add_edge {
-    use super::*;
 
     #[test]
-    fn duplicate() {
+    fn add_duplicate_edge() {
         let mut graph = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
 
         assert_eq!(graph.add_edge(0, 1), Err(Error::DuplicateEdge(0, 1)))
     }
 
     #[test]
-    fn duplicate_reverse() {
+    fn add_duplicate_edge_reverse() {
         let mut graph = DefaultGraph::try_from(vec![vec![1], vec![0]]).unwrap();
 
         assert_eq!(graph.add_edge(1, 0), Err(Error::DuplicateEdge(1, 0)))
     }
 
     #[test]
-    fn missing_sid() {
+    fn add_edge_missing_sid() {
         let mut graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.add_edge(1, 0), Err(Error::MissingNode(1)))
     }
 
     #[test]
-    fn missing_tid() {
+    fn add_edge_missing_tid() {
         let mut graph = DefaultGraph::try_from(vec![vec![]]).unwrap();
 
         assert_eq!(graph.add_edge(0, 1), Err(Error::MissingNode(1)))
+    }
+}
+
+#[cfg(test)]
+mod remove_default_graph {
+    use super::*;
+
+    /// Return two nodes connected to each other.
+    fn get_small_graph() -> DefaultGraph {
+        let mut graph = DefaultGraph::new();
+        graph.add_node_with(0).unwrap();
+        graph.add_node_with(1).unwrap();
+        graph.add_edge(0, 1).unwrap();
+        graph
+    }
+
+    /// Return two nodes, 0 connected to 1 connected to 2.
+    fn get_medium_graph() -> DefaultGraph {
+        let mut graph = DefaultGraph::new();
+        graph.add_node_with(0).unwrap();
+        graph.add_node_with(1).unwrap();
+        graph.add_node_with(2).unwrap();
+        graph.add_edge(0, 1).unwrap();
+        graph.add_edge(1, 2).unwrap();
+        graph
+    }
+
+    #[test]
+    /// Removing an edge.
+    fn remove_edge() {
+        let mut graph = get_small_graph();
+        graph.remove_edge(0, 1);
+        assert_eq!(graph.edges().len(), 0);
+    }
+
+    #[test]
+    /// Removing the reverse of an edge, should still be valid.
+    fn remove_edge_reverse() {
+        let mut graph = get_small_graph();
+        graph.remove_edge(1, 0);
+        assert_eq!(graph.edges().len(), 0);
+    }
+
+    #[test]
+    fn remove_edges() {
+        let mut graph = get_medium_graph();
+        let n = graph.remove_edges_with(1);
+        assert_eq!(n, 2);
+        assert_eq!(graph.edges.len(), 0);
+    }
+
+    #[test]
+    fn remove_node() {
+        let mut graph = get_medium_graph();
+        let n = graph.remove_node(1);
+        assert_eq!(n, 1);
+        assert_eq!(graph.edges().len(), 0);
+        assert_eq!(graph.nodes().len(), 2);
+        assert!(graph.nodes().contains(&0));
+        assert!(!graph.nodes().contains(&1));
+        assert!(graph.nodes().contains(&2));
     }
 }
 
