@@ -15,7 +15,7 @@ gamma = 0.8
 
 ## Examples
 
-`ArrayGraph` is a reference `Graph` implementation. Node, neighbor, and
+`DefaultGraph` is a reference `Graph` implementation backed by arrays for nodes, adjacencies, and edges. Node, neighbor, and
 edge iteration order are stable and determined by the `from_adjacency` function.
 
 ```rust
@@ -64,5 +64,5 @@ Gamma is not yet stable, but care is taken to limit breaking changes whenever po
 
 ## License
 
-Tinygraph is distributed under the terms of the MIT License. See
+Gamma is distributed under the terms of the MIT License. See
 [LICENSE-MIT](LICENSE-MIT) and [COPYRIGHT](COPYRIGHT) for details.
