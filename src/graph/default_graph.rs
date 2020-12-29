@@ -505,6 +505,9 @@ mod remove_default_graph {
         let n = graph.remove_edges_with(1);
         assert_eq!(n, 2);
         assert_eq!(graph.edges.len(), 0);
+        for adjacency in &graph.adjacency {
+            assert_eq!(adjacency.len(), 0);
+        }
     }
 
     #[test]
