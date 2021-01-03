@@ -38,15 +38,15 @@ pub fn components<'a, G: Graph>(
 ) -> Components<'a, G> {
     Components {
         visited: HashSet::new(),
-        iter: graph.nodes().iter(),
-        graph: graph
+        iter: graph.nodes(),
+        graph
     }
 }
 
 pub struct Components<'a, G: Graph> {
     visited: HashSet<usize>,
-    iter: std::slice::Iter<'a, usize>,
-    graph: &'a G
+    iter: Box<dyn Iterator<Item=&'a usize> + 'a>,
+    graph: &'a G,
 }
 
 impl<'a, G: Graph> Iterator for Components<'a, G> {
@@ -54,7 +54,7 @@ impl<'a, G: Graph> Iterator for Components<'a, G> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let root = loop {
-            match self.iter.next() {
+            match (*self.iter).next() {
                 Some(root) => {
                     if !self.visited.contains(root) {
                         break root;

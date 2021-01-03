@@ -98,7 +98,7 @@ fn some_v(forest: &Forest, marker: &Marker) -> Option<usize> {
 
 fn some_w<G: Graph>(v: usize, graph: &G, marker: &Marker) -> Option<usize> {
     graph.neighbors(v)
-        .expect("neighbors of v").iter().cloned()
+        .expect("neighbors of v").cloned()
         .find(|&id| !marker.has_edge(v, id))
 }
 
@@ -124,7 +124,7 @@ fn even_path<G: Graph>(
 fn process_blossom<G:Graph>(
     left: Vec<usize>, right: Vec<usize>, graph: &G, pairing: &Pairing
 ) -> Option<Vec<usize>> {
-    let max_id = graph.nodes().iter().max().expect("no max id");
+    let max_id = graph.nodes().max().expect("no max id");
     let blossom =  Blossom::new(max_id + 1, left, right);
     let contracted_graph = blossom.contract_graph(graph).expect("bad graph");
     let mut contracted_pairing = blossom.contract_pairing(&pairing);

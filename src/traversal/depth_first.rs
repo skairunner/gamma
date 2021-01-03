@@ -87,9 +87,10 @@ impl<'a, G> Iterator for DepthFirst<'a, G>
                 if self.nodes.contains(&node) {
                     Some(Step::new(parent, node, true))
                 } else {
-                    let neighbors = self.graph.neighbors(node).unwrap().to_vec();
+                    let neighbors: Vec<_> = self.graph.neighbors(node).unwrap().collect();
 
                     for neighbor in neighbors.into_iter().rev() {
+                        let neighbor = *neighbor;
                         if neighbor == parent {
                             continue;
                         }

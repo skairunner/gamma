@@ -22,8 +22,12 @@ use crate::graph::removeable_graph::RemovableGraph;
 ///         vec![ 1 ]
 ///     ])?;
 ///
-///     assert_eq!(c3.nodes().to_vec(), vec![ 0, 1, 2 ]);
+///     let c3_nodes = c3.nodes()
+///         .map(|n| *n)
+///         .collect::<Vec<_>>();
 ///
+///     assert_eq!(c3_nodes, vec![ 0, 1, 2 ]);
+/// 
 ///     assert_eq!(c3.add_edge(0, 1), Err(Error::DuplicateEdge(0, 1)));
 ///
 ///     Ok(())
@@ -82,14 +86,14 @@ impl Graph for DefaultGraph {
         self.edges.len()
     }
 
-    fn nodes(&self) -> &[usize] {
-        &self.nodes[..]
+    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a usize> + 'a> {
+        Box::new(self.nodes.iter())
     }
 
-    fn neighbors(&self, id: usize) -> Result<&[usize], Error> {
+    fn neighbors<'a>(&'a self, id: usize) -> Result<Box<dyn Iterator<Item=&'a usize> + 'a>, Error> {
         let index = self.index_for(id)?;
 
-        Ok(&self.adjacency[index])
+        Ok(Box::new(self.adjacency[index].iter()))
     }
 
     fn has_node(&self, id: usize) -> bool {
@@ -102,8 +106,8 @@ impl Graph for DefaultGraph {
         Ok(self.adjacency[index].len())
     }
 
-    fn edges(&self) -> &[(usize, usize)] {
-        &self.edges[..]
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item=&'a (usize, usize)> + 'a> {
+        Box::new(self.edges.iter())
     }
 
     fn has_edge(&self, sid: usize, tid: usize) -> Result<bool, Error> {
@@ -406,7 +410,7 @@ mod try_from_depth_first {
         let traversal = DepthFirst::new(&g1, 1).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges(), [(1, 0), (1, 2)])
+        assert_eq!(g2.edges, [ (1 as usize, 0 as usize), (1, 2) ])
     }
 
     #[test]
@@ -415,7 +419,7 @@ mod try_from_depth_first {
         let traversal = DepthFirst::new(&g1, 0).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges(), [(0, 1), (1, 2), (2, 0)])
+        assert_eq!(g2.edges, [ (0, 1), (1, 2), (2, 0) ])
     }
 }
 
@@ -488,7 +492,7 @@ mod remove_default_graph {
     fn remove_edge() {
         let mut graph = get_small_graph();
         graph.remove_edge(0, 1);
-        assert_eq!(graph.edges().len(), 0);
+        assert!(graph.edges.is_empty());
     }
 
     #[test]
@@ -496,7 +500,7 @@ mod remove_default_graph {
     fn remove_edge_reverse() {
         let mut graph = get_small_graph();
         graph.remove_edge(1, 0);
-        assert_eq!(graph.edges().len(), 0);
+        assert!(graph.edges.is_empty());
     }
 
     #[test]
@@ -515,11 +519,10 @@ mod remove_default_graph {
         let mut graph = get_medium_graph();
         let n = graph.remove_node(1);
         assert_eq!(n, 1);
-        assert_eq!(graph.edges().len(), 0);
-        assert_eq!(graph.nodes().len(), 2);
-        assert!(graph.nodes().contains(&0));
-        assert!(!graph.nodes().contains(&1));
-        assert!(graph.nodes().contains(&2));
+        assert!(graph.edges.is_empty());
+        assert!(graph.nodes.contains(&0));
+        assert!(!graph.nodes.contains(&1));
+        assert!(graph.nodes.contains(&2));
     }
 }
 
@@ -588,14 +591,14 @@ mod nodes {
     fn p0() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.nodes(), [])
+        assert_eq!(graph.nodes, vec![])
     }
 
     #[test]
     fn p3() {
         let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.nodes(), [0, 1, 2])
+        assert_eq!(graph.nodes, vec![ 0 as usize, 1, 2 ])
     }
 }
 
@@ -607,14 +610,15 @@ mod neighbors {
     fn given_outside() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.neighbors(1), Err(Error::MissingNode(1)))
+        assert!(graph.neighbors(1).is_err());
+        assert_eq!(graph.neighbors(1).err(), Some(Error::MissingNode(1)));
     }
 
     #[test]
     fn given_inside_p3() {
         let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.neighbors(1).unwrap(), [0, 2])
+        assert_eq!(graph.neighbors(1).unwrap().map(|e| *e).collect::<Vec<_>>(), [ 0, 2 ])
     }
 }
 
@@ -664,14 +668,14 @@ mod edges {
     fn p0() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.edges().to_vec(), vec![])
+        assert!(graph.edges().collect::<Vec<_>>().is_empty());
     }
 
     #[test]
     fn p3() {
         let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.edges(), [(0, 1), (1, 2)])
+        assert_eq!(graph.edges, [ (0, 1), (1, 2) ])
     }
 }
 
