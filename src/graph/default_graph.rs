@@ -19,8 +19,12 @@ use crate::traversal::DepthFirst;
 ///         vec![ 0, 2 ],
 ///         vec![ 1 ]
 ///     ])?;
+///
+///     let c3_nodes = c3.nodes()
+///         .map(|n| *n)
+///         .collect::<Vec<_>>();
 /// 
-///     assert_eq!(c3.nodes().to_vec(), vec![ 0, 1, 2 ]);
+///     assert_eq!(c3_nodes, vec![ 0, 1, 2 ]);
 /// 
 ///     assert_eq!(c3.add_edge(0, 1), Err(Error::DuplicateEdge(0, 1)));
 /// 
@@ -101,8 +105,8 @@ impl Graph for DefaultGraph {
         self.edges.len()
     }
 
-    fn nodes(&self) -> &[usize] {
-        &self.nodes[..]
+    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a usize> + 'a> {
+        Box::new(self.nodes.iter())
     }
 
     fn neighbors(&self, id: usize) -> Result<&[usize], Error> {
@@ -482,7 +486,7 @@ mod nodes {
     fn p0() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.nodes(), [ ])
+        assert_eq!(graph.nodes, vec![])
     }
 
     #[test]
@@ -493,7 +497,7 @@ mod nodes {
             vec![ 1 ]
         ]).unwrap();
 
-        assert_eq!(graph.nodes(), [ 0, 1, 2 ])
+        assert_eq!(graph.nodes, vec![ 0 as usize, 1, 2 ])
     }
 }
 

@@ -12,7 +12,7 @@ pub trait Graph {
     fn size(&self) -> usize;
 
     /// Returns the nodes of this graph.
-    fn nodes(&self) -> &[usize];
+    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a usize> + 'a>;
 
     /// Iterates the neighbors of the node.
     /// Returns an error if id not found.
@@ -21,7 +21,7 @@ pub trait Graph {
     /// Returns true if node is a member, or false otherwise.
     fn has_node(&self, id: usize) -> bool;
 
-    /// Returns the count of neighbors at node. REturns an error if id not
+    /// Returns the count of neighbors at node. Returns an error if id not
     /// found.
     fn degree(&self, id: usize) -> Result<usize, Error>;
 
