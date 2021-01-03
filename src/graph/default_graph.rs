@@ -109,10 +109,10 @@ impl Graph for DefaultGraph {
         Box::new(self.nodes.iter())
     }
 
-    fn neighbors(&self, id: usize) -> Result<&[usize], Error> {
+    fn neighbors<'a>(&'a self, id: usize) -> Result<Box<dyn Iterator<Item=&'a usize> + 'a>, Error> {
         let index = self.index_for(id)?;
 
-        Ok(&self.adjacency[index])
+        Ok(Box::new(self.adjacency[index].iter()))
     }
     
     fn has_node(&self, id: usize) -> bool {
@@ -125,8 +125,8 @@ impl Graph for DefaultGraph {
         Ok(self.adjacency[index].len())
     }
 
-    fn edges(&self) -> &[(usize, usize)] {
-        &self.edges[..]
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item=&'a (usize, usize)> + 'a> {
+        Box::new(self.edges.iter())
     }
 
     fn has_edge(&self, sid: usize, tid: usize) -> Result<bool, Error> {
@@ -337,7 +337,7 @@ mod try_from_depth_first {
         let traversal = DepthFirst::new(&g1, 1).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges(), [ (1, 0), (1, 2) ])
+        assert_eq!(g2.edges, [ (1 as usize, 0 as usize), (1, 2) ])
     }
 
     #[test]
@@ -350,7 +350,7 @@ mod try_from_depth_first {
         let traversal = DepthFirst::new(&g1, 0).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges(), [ (0, 1), (1, 2), (2, 0) ])
+        assert_eq!(g2.edges, [ (0, 1), (1, 2), (2, 0) ])
     }
 }
 
@@ -509,7 +509,8 @@ mod neighbors {
     fn given_outside() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.neighbors(1), Err(Error::MissingNode(1)))
+        assert!(graph.neighbors(1).is_err());
+        assert_eq!(graph.neighbors(1).err(), Some(Error::MissingNode(1)));
     }
 
     #[test]
@@ -520,7 +521,7 @@ mod neighbors {
             vec![ 1 ]
         ]).unwrap();
 
-        assert_eq!(graph.neighbors(1).unwrap(), [ 0, 2 ])
+        assert_eq!(graph.neighbors(1).unwrap().map(|e| *e).collect::<Vec<_>>(), [ 0, 2 ])
     }
 }
 
@@ -576,7 +577,7 @@ mod edges {
     fn p0() {
         let graph = DefaultGraph::new();
 
-        assert_eq!(graph.edges().to_vec(), vec![ ])
+        assert!(graph.edges().collect::<Vec<_>>().is_empty());
     }
 
     #[test]
@@ -587,7 +588,7 @@ mod edges {
             vec![ 1 ]
         ]).unwrap();
 
-        assert_eq!(graph.edges(), [ (0, 1), (1, 2) ])
+        assert_eq!(graph.edges, [ (0, 1), (1, 2) ])
     }
 }
 

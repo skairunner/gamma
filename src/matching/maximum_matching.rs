@@ -98,7 +98,7 @@ fn some_v(forest: &Forest, marker: &Marker) -> Option<usize> {
 
 fn some_w<G: Graph>(v: usize, graph: &G, marker: &Marker) -> Option<usize> {
     graph.neighbors(v)
-        .expect("neighbors of v").iter().cloned()
+        .expect("neighbors of v").cloned()
         .find(|&id| !marker.has_edge(v, id))
 }
 
