@@ -1,15 +1,15 @@
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
-use std::collections::hash_map::Entry::{ Occupied, Vacant };
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Pairing {
-    pairs: HashMap<usize, usize>
+    pairs: HashMap<usize, usize>,
 }
 
 impl Pairing {
     pub fn new() -> Self {
         Self {
-            pairs: HashMap::new()
+            pairs: HashMap::new(),
         }
     }
 
@@ -26,8 +26,9 @@ impl Pairing {
         self.insert(tid, sid)
     }
 
-    pub fn edges(&self) -> impl Iterator<Item=(usize, usize)> + '_ {
-        self.pairs.iter()
+    pub fn edges(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.pairs
+            .iter()
             .filter(|pair| pair.0 < pair.1)
             .map(|pair| (*pair.0, *pair.1))
     }
@@ -47,7 +48,7 @@ impl Pairing {
     pub fn mate(&self, id: usize) -> usize {
         match self.pairs.get(&id) {
             Some(&mate) => mate,
-            None => panic!("missing node: {}", id)
+            None => panic!("missing node: {}", id),
         }
     }
 
@@ -61,7 +62,7 @@ impl Pairing {
 
                     self.pairs.remove(&old);
                 }
-            },
+            }
             Vacant(entry) => {
                 entry.insert(tid);
             }
@@ -112,8 +113,10 @@ mod edges {
 
         assert_eq!(
             pairing.pairs,
-            [ (0, 1), (2, 3), (1, 0), (3, 2) ]
-                .iter().cloned().collect::<HashMap<_,_>>()
+            [(0, 1), (2, 3), (1, 0), (3, 2)]
+                .iter()
+                .cloned()
+                .collect::<HashMap<_, _>>()
         )
     }
 
@@ -126,7 +129,7 @@ mod edges {
 
         assert_eq!(
             pairing.pairs,
-            [ (0, 1), (1, 0) ].iter().cloned().collect::<HashMap<_,_>>()
+            [(0, 1), (1, 0)].iter().cloned().collect::<HashMap<_, _>>()
         )
     }
 
@@ -139,7 +142,7 @@ mod edges {
 
         assert_eq!(
             pairing.pairs,
-            [ (2, 3), (3, 2) ].iter().cloned().collect::<HashMap<_,_>>()
+            [(2, 3), (3, 2)].iter().cloned().collect::<HashMap<_, _>>()
         )
     }
 
@@ -153,36 +156,40 @@ mod edges {
 
         assert_eq!(
             pairing.pairs,
-            [ (1, 2), (2, 1) ].iter().cloned().collect::<HashMap<_,_>>()
+            [(1, 2), (2, 1)].iter().cloned().collect::<HashMap<_, _>>()
         )
     }
 
     #[test]
     fn augment_empty() {
         let mut pairing = Pairing::new();
-        let path = vec![ 0, 1, 2, 3 ];
+        let path = vec![0, 1, 2, 3];
 
         pairing.augment(path);
 
         assert_eq!(
             pairing.pairs,
-            [ (0, 1), (2, 3), (1, 0), (3, 2) ]
-                .iter().cloned().collect::<HashMap<_,_>>()
+            [(0, 1), (2, 3), (1, 0), (3, 2)]
+                .iter()
+                .cloned()
+                .collect::<HashMap<_, _>>()
         )
     }
 
     #[test]
     fn augment_inner() {
         let mut pairing = Pairing::new();
-        let path = vec![ 0, 1, 2, 3 ];
+        let path = vec![0, 1, 2, 3];
 
         pairing.pair(1, 2);
         pairing.augment(path);
 
         assert_eq!(
             pairing.pairs,
-            [ (0, 1), (2, 3), (1, 0), (3, 2) ]
-                .iter().cloned().collect::<HashMap<_,_>>()
+            [(0, 1), (2, 3), (1, 0), (3, 2)]
+                .iter()
+                .cloned()
+                .collect::<HashMap<_, _>>()
         )
     }
 }
@@ -192,10 +199,10 @@ mod augment {
     use super::*;
 
     #[test]
-    #[should_panic(expected="even path augmentation")]
+    #[should_panic(expected = "even path augmentation")]
     fn odd_path() {
         let mut pairing = Pairing::new();
-        let path = vec![ 0, 1, 2, 3, 4 ];
+        let path = vec![0, 1, 2, 3, 4];
 
         pairing.augment(path)
     }
@@ -236,7 +243,7 @@ mod mate {
     use super::*;
 
     #[test]
-    #[should_panic(expected="missing node: 0")]
+    #[should_panic(expected = "missing node: 0")]
     fn outside() {
         let pairing = Pairing::new();
 

@@ -5,8 +5,8 @@ use std::convert::TryFrom;
 
 use super::{Error, Graph};
 use crate::graph::appendable_graph::AppendableGraph;
-use crate::traversal::DepthFirst;
 use crate::graph::removeable_graph::RemovableGraph;
+use crate::traversal::DepthFirst;
 
 /// A Graph backed by an adjacency matrix. Nodes and neighbors are iterated in
 /// the order in which they're added.
@@ -27,7 +27,7 @@ use crate::graph::removeable_graph::RemovableGraph;
 ///         .collect::<Vec<_>>();
 ///
 ///     assert_eq!(c3_nodes, vec![ 0, 1, 2 ]);
-/// 
+///
 ///     assert_eq!(c3.add_edge(0, 1), Err(Error::DuplicateEdge(0, 1)));
 ///
 ///     Ok(())
@@ -86,11 +86,14 @@ impl Graph for DefaultGraph {
         self.edges.len()
     }
 
-    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a usize> + 'a> {
+    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item = &'a usize> + 'a> {
         Box::new(self.nodes.iter())
     }
 
-    fn neighbors<'a>(&'a self, id: usize) -> Result<Box<dyn Iterator<Item=&'a usize> + 'a>, Error> {
+    fn neighbors<'a>(
+        &'a self,
+        id: usize,
+    ) -> Result<Box<dyn Iterator<Item = &'a usize> + 'a>, Error> {
         let index = self.index_for(id)?;
 
         Ok(Box::new(self.adjacency[index].iter()))
@@ -106,7 +109,7 @@ impl Graph for DefaultGraph {
         Ok(self.adjacency[index].len())
     }
 
-    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item=&'a (usize, usize)> + 'a> {
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = &'a (usize, usize)> + 'a> {
         Box::new(self.edges.iter())
     }
 
@@ -213,7 +216,9 @@ impl RemovableGraph for DefaultGraph {
                 self.remove_adjacency(index_sid, tid);
                 self.remove_adjacency(index_tid, sid);
                 // Remove edge(s) from the edge list
-                self.edges = self.edges.iter()
+                self.edges = self
+                    .edges
+                    .iter()
                     .filter(|edge| **edge != (sid, tid) && **edge != (tid, sid))
                     .map(|edge| *edge)
                     .collect();
@@ -224,11 +229,14 @@ impl RemovableGraph for DefaultGraph {
     }
 
     fn remove_edges_with(&mut self, id: usize) -> usize {
-        let edges: Vec<_> = self.edges.iter()
+        let edges: Vec<_> = self
+            .edges
+            .iter()
             .filter(|edge| (**edge).0 == id || (**edge).1 == id)
             .map(|edge| *edge)
             .collect();
-        edges.into_iter()
+        edges
+            .into_iter()
             .map(|(sid, tid)| self.remove_edge(sid, tid))
             .sum()
     }
@@ -410,7 +418,7 @@ mod try_from_depth_first {
         let traversal = DepthFirst::new(&g1, 1).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges, [ (1 as usize, 0 as usize), (1, 2) ])
+        assert_eq!(g2.edges, [(1 as usize, 0 as usize), (1, 2)])
     }
 
     #[test]
@@ -419,7 +427,7 @@ mod try_from_depth_first {
         let traversal = DepthFirst::new(&g1, 0).unwrap();
         let g2 = DefaultGraph::try_from(traversal).unwrap();
 
-        assert_eq!(g2.edges, [ (0, 1), (1, 2), (2, 0) ])
+        assert_eq!(g2.edges, [(0, 1), (1, 2), (2, 0)])
     }
 }
 
@@ -598,7 +606,7 @@ mod nodes {
     fn p3() {
         let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.nodes, vec![ 0 as usize, 1, 2 ])
+        assert_eq!(graph.nodes, vec![0 as usize, 1, 2])
     }
 }
 
@@ -618,7 +626,10 @@ mod neighbors {
     fn given_inside_p3() {
         let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.neighbors(1).unwrap().map(|e| *e).collect::<Vec<_>>(), [ 0, 2 ])
+        assert_eq!(
+            graph.neighbors(1).unwrap().map(|e| *e).collect::<Vec<_>>(),
+            [0, 2]
+        )
     }
 }
 
@@ -675,7 +686,7 @@ mod edges {
     fn p3() {
         let graph = DefaultGraph::try_from(vec![vec![1], vec![0, 2], vec![1]]).unwrap();
 
-        assert_eq!(graph.edges, [ (0, 1), (1, 2) ])
+        assert_eq!(graph.edges, [(0, 1), (1, 2)])
     }
 }
 

@@ -11,3 +11,4 @@ Graph primitives and traversals for Rust.
 """
 
 [dependencies]
+thiserror = "~1.0"

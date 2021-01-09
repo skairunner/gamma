@@ -12,12 +12,15 @@ pub trait Graph {
     fn size(&self) -> usize;
 
     /// Returns the nodes of this graph.
-    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a usize> + 'a>;
+    fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item = &'a usize> + 'a>;
 
     /// Iterates the neighbors of the node.
     /// Returns an error if id not found.
-    fn neighbors<'a>(&'a self, id: usize) -> Result<Box<dyn Iterator<Item=&'a usize> + 'a>, Error>;
-    
+    fn neighbors<'a>(
+        &'a self,
+        id: usize,
+    ) -> Result<Box<dyn Iterator<Item = &'a usize> + 'a>, Error>;
+
     /// Returns true if node is a member, or false otherwise.
     fn has_node(&self, id: usize) -> bool;
 
@@ -26,7 +29,7 @@ pub trait Graph {
     fn degree(&self, id: usize) -> Result<usize, Error>;
 
     /// Returns the edges of this graph.
-    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item=&'a (usize, usize)> + 'a>;
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = &'a (usize, usize)> + 'a>;
 
     /// Returns true if the edge (sid, tid) exists, or false otherwise.
     /// Returns MissingNode if either sid or tid are not members.

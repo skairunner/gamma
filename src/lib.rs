@@ -1,4 +1,4 @@
 pub mod graph;
-pub mod traversal;
-pub mod selection;
 pub mod matching;
+pub mod selection;
+pub mod traversal;

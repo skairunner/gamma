@@ -1,16 +1,16 @@
-use std::collections::{ HashMap, HashSet };
-use std::collections::hash_map::Entry::{ Occupied, Vacant };
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::{HashMap, HashSet};
 
 pub struct Marker {
     nodes: HashSet<usize>,
-    edges: HashMap<usize, Vec<usize>>
+    edges: HashMap<usize, Vec<usize>>,
 }
 
 impl Marker {
     pub fn new() -> Self {
         Self {
             nodes: HashSet::new(),
-            edges: HashMap::new()
+            edges: HashMap::new(),
         }
     }
 
@@ -32,18 +32,16 @@ impl Marker {
                 } else {
                     entry.get_mut().push(tid)
                 }
-            },
+            }
             Vacant(entry) => {
-                entry.insert(vec![ tid ]);
+                entry.insert(vec![tid]);
             }
         }
 
         match self.edges.entry(tid) {
-            Occupied(mut entry) => {
-                entry.get_mut().push(sid)
-            },
+            Occupied(mut entry) => entry.get_mut().push(sid),
             Vacant(entry) => {
-                entry.insert(vec![ sid ]);
+                entry.insert(vec![sid]);
             }
         }
     }
@@ -51,7 +49,7 @@ impl Marker {
     pub fn has_edge(&self, sid: usize, tid: usize) -> bool {
         match self.edges.get(&sid) {
             None => false,
-            Some(neighbors) => neighbors.contains(&tid)
+            Some(neighbors) => neighbors.contains(&tid),
         }
     }
 }
@@ -61,7 +59,7 @@ mod mark_node {
     use super::*;
 
     #[test]
-    #[should_panic(expected="node marked twice: 0")]
+    #[should_panic(expected = "node marked twice: 0")]
     fn duplicate() {
         let mut marker = Marker::new();
 
@@ -75,7 +73,7 @@ mod mark_edge {
     use super::*;
 
     #[test]
-    #[should_panic(expected="edge marked twice: (0,1)")]
+    #[should_panic(expected = "edge marked twice: (0,1)")]
     fn duplicate() {
         let mut marker = Marker::new();
 
@@ -84,7 +82,7 @@ mod mark_edge {
     }
 
     #[test]
-    #[should_panic(expected="edge marked twice: (1,0)")]
+    #[should_panic(expected = "edge marked twice: (1,0)")]
     fn duplicate_reverse() {
         let mut marker = Marker::new();
 

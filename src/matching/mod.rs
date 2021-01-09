@@ -1,10 +1,10 @@
-mod forest;
-mod pairing;
 mod blossom;
+mod forest;
+mod greedy;
 mod marker;
 mod maximum_matching;
-mod greedy;
+mod pairing;
 
-pub use pairing::Pairing;
-pub use maximum_matching::maximum_matching;
 pub use greedy::greedy;
+pub use maximum_matching::maximum_matching;
+pub use pairing::Pairing;

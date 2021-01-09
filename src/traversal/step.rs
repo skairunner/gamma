@@ -1,10 +1,10 @@
 /// A single traversal step comprised of source and target nodes, and a
 /// boolean flag indicating whether a cycle cut is present.
-#[derive(Eq,PartialEq,Hash,Debug)]
+#[derive(Eq, PartialEq, Hash, Debug)]
 pub struct Step {
     pub sid: usize,
     pub tid: usize,
-    pub cut: bool
+    pub cut: bool,
 }
 
 impl Step {
